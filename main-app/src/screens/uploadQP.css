@@ -1,0 +1,101 @@
+.upload-body {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #121212;
+  padding: 24px;
+}
+
+.upload-main {
+  max-width: 800px !important;
+}
+
+.upload-paper {
+  background-color: #1a1a1a !important;
+  color: #fff !important;
+  padding: 32px;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid #333;
+}
+
+.file-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 20px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.uploadqp-button {
+  height: 48px;
+}
+
+.file-name-container {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 10px 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Override MUI styles for dark theme */
+.MuiInputLabel-root {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.MuiOutlinedInput-root {
+  color: white !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.MuiSelect-icon {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.MuiMenuItem-root {
+  color: rgba(0, 0, 0, 0.87) !important;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px !important;
+}
+
+.dialog-content {
+  background-color: #1a1a1a;
+  color: white;
+}
+
+.dialog-title {
+  background-color: #121212;
+  color: white;
+}
+
+.dialog-actions {
+  background-color: #1a1a1a;
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  .upload-paper {
+    padding: 24px 16px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .action-buttons button {
+    width: 100%;
+  }
+}

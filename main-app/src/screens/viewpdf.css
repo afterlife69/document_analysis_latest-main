@@ -1,0 +1,95 @@
+.view-body{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.pdf-frame {
+  width: 100%;
+  height: 100%;
+  margin-top: 62px;
+  border: none;
+}
+.frame-container{
+  height: 100%;
+  width: 100%;
+}
+
+.view-pdf-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+.pdf-toolbar {
+  position: sticky;
+  top: 64px; /* AppBar height */
+  z-index: 10;
+}
+
+.pdf-content {
+  padding-top: 120px; /* Space for fixed AppBar + toolbar */
+  padding-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.pdf-page {
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.pdf-page canvas {
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* Annotation and text layer styles */
+.react-pdf__Page__annotations {
+  height: 0;
+}
+
+.react-pdf__Page__textContent {
+  height: 0;
+  width: 0;
+}
+
+.react-pdf__Page__textContent > span {
+  color: transparent;
+  cursor: text;
+}
+
+/* Loading styles */
+.pdf-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 600px) {
+  .pdf-toolbar .MuiContainer-root {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  
+  .pdf-content {
+    padding-top: 150px; /* Larger padding for mobile as toolbar might wrap */
+  }
+  
+  .pdf-page {
+    margin: 0 -8px; /* Expand to full width on small screens */
+  }
+}
+
+/* Hide react-pdf's loading message as we have our own */
+.react-pdf__message--loading {
+  display: none;
+}

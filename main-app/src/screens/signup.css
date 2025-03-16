@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+}
+
+.signup-container {
+    box-sizing: border-box;
+    user-select: none;
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}
+
+.signup-form {
+    position: relative;
+    background: rgb(0, 0, 0);
+    padding: 2.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--surface-2);
+    width: 90%;
+    max-width: 450px;
+    overflow: hidden;
+}
+
+.signup-particle-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    border-radius: inherit;
+    overflow: hidden;
+}
+
+.signup-particle-canvas {
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.signup-form-title {
+    color: #e0e0e0;
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-weight: 700;
+    z-index: 1;
+    position: relative;
+}
+
+.signup-input-group {
+    margin-bottom: 0.8rem;
+    position: relative;
+    z-index: 1;
+}
+
+.signup-input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #e0e0e0;
+    font-weight: 500;
+}
+
+.signup-input-group input {
+    width: 100%;
+    padding: 0.4rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.signup-input-group input:focus {
+    outline: none;
+    border-color: #dadada;
+    box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.3);
+}
+
+.signup-button {
+    width: 100%;
+    padding: 1rem;
+    background: #3b3b3b;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.signup-button:hover {
+    background: #7b7d7e;
+}
+
+.signup-additional-links {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+}
+
+.signup-additional-links a {
+    color: #797979;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.signup-additional-links a:hover {
+    color: #e0e0e0;
+}
+
+.signup-pixel-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+.signup-centerdv{
+    align-self: center;
+}

@@ -60,15 +60,15 @@ export const processPrompt = async (req, res) => {
     // Generate embeddings for the search query
     const queryEmbedding = await getEmbedding(query);
     
-    // Find relevant documents using vector similarity search - FIX: Correct vector search syntax
+    // Find relevant documents using vector similarity search
     const results = await PersonalDocumentEmbedding.aggregate([
       {
         $search: {
-          index: "default", // Make sure to use your actual vector index name here
+          index: "default", // Use your actual vector index name
           knnBeta: {
             vector: queryEmbedding,
             path: "embedding",
-            k: 10 // Get top 5 matches
+            k: 5 // Get top 5 matches - reduced from 10 since we now have complete documents
           },
         }
       },
@@ -86,13 +86,11 @@ export const processPrompt = async (req, res) => {
           confidence: 1,
           score: { $meta: "searchScore" }
         }
-      },
-      { $limit: 5 }
+      }
     ]);
-
-    // console.log(results);
+    console.log(results);
     
-    // // If no results found
+    // If no results found
     if (!results || results.length === 0) {
       // Generate a response for no results found
       const noResultsResponse = await chatModel.generateContent(
@@ -109,7 +107,7 @@ export const processPrompt = async (req, res) => {
       });
     }
 
-    // Decrypt document names and field values for relevant results
+    // Decrypt and process document content from the single-document embeddings
     const decryptedResults = await Promise.all(results.map(async (result) => {
       try {
         // Decrypt document name
@@ -118,48 +116,32 @@ export const processPrompt = async (req, res) => {
           result.docNameIV
         );
         
-        // Decrypt field key and value
+        // Decrypt field key (should be "complete_document" in the new approach)
         const fieldKey = decryptData(
           result.encryptedFieldKey,
           result.fieldKeyIV
         );
         
-        const fieldValue = decryptData(
+        // This now contains the entire structured document data
+        const structuredContent = decryptData(
           result.encryptedFieldValue,
           result.fieldValueIV
         );
 
-        // Get document metadata and full structured content
+        // Get additional document metadata
         const document = await ProcessedDocument.findById(result.documentId);
-        let structuredContent = {};
-        
-        // If we have the document, decrypt and parse its full content
-        if (document && document.encryptedData && document.encryptionIV) {
-          try {
-            const decryptedData = decryptData(
-              document.encryptedData,
-              document.encryptionIV
-            );
-            structuredContent = JSON.parse(decryptedData);
-          } catch (parseError) {
-            console.error('Error parsing document structured data:', parseError);
-          }
-        }
         
         return {
           documentName,
+          documentType: document?.documentName || documentName,
           fileCategory: result.fileCategory,
-          fieldKey,
-          fieldValue,
-          confidence: result.confidence,
-          similarity: result.score,
-          documentType: document?.documentName || 'Unknown Document',
           originalFilename: document?.originalFilename || 'Unknown File',
-          // Add the full structured content including any tables
+          // The entire structured content is now available directly
           structuredContent,
+          similarity: result.score,
         };
       } catch (error) {
-        console.error('Error decrypting document field:', error);
+        console.error('Error decrypting document:', error);
         return null;
       }
     }));
@@ -170,35 +152,77 @@ export const processPrompt = async (req, res) => {
     if (validResults.length === 0) {
       return res.status(200).json({
         success: true,
-        message: "I found some information but couldn't decrypt it properly. Please try again.",
+        message: "I found some information but couldn't process it properly. Please try again.",
         hasResults: false
       });
     }
     
-    // Construct a prompt for Gemini emphasizing security context and markdown formatting
-    let prompt = `IMPORTANT CONTEXT: You are operating in a secure personal document management system. 
-The data you're about to see has been securely retrieved from the user's personal document storage.
-This is the user's own data, retrieved at their explicit request, in a secure environment with proper authentication.
-If there is no relevant information it means that user hasn't uploaded any related documents, just prompt him to do so
+    // Format the data from each document into a more structured representation for the AI
+    const formattedDocuments = validResults.map((doc, index) => {
+      // Create a summary representation of the document content for the prompt
+      let contentSummary;
+      
+      try {
+        if (doc.structuredContent) {
+          // For Document type with content property
+          if (doc.structuredContent.content) {
+            contentSummary = doc.structuredContent.content;
+          } 
+          // For Document type with old format
+          else if (doc.structuredContent.fields) {
+            contentSummary = doc.structuredContent.fields;
+          }
+          // For Timetable type
+          else if (doc.fileCategory === 'Timetable' && doc.structuredContent.events) {
+            contentSummary = { events: doc.structuredContent.events };
+          }
+          // Fallback
+          else {
+            contentSummary = doc.structuredContent;
+          }
+        } else {
+          contentSummary = { note: "No structured content available" };
+        }
+      } catch (error) {
+        console.error('Error formatting document content:', error);
+        contentSummary = { error: "Content could not be processed" };
+      }
+      
+      return {
+        index: index + 1,
+        name: doc.documentName,
+        type: doc.documentType,
+        category: doc.fileCategory,
+        filename: doc.originalFilename,
+        relevance: doc.similarity,
+        content: contentSummary
+      };
+    });
 
-USER QUERY: "${query}"
+    // Construct a prompt for Gemini that handles nested JSON data effectively
+    let prompt = `IMPORTANT CONTEXT: You are answering a question about the user's personal documents.
+User Query: "${query}"
 
-Here's the relevant information from the user's personal documents:
+I've found ${validResults.length} relevant document(s) in the user's secure storage. Here's the structured content:
 
 `;
     
-    validResults.forEach((result, index) => {
-      prompt += `Document ${index + 1}: ${result.documentType} (${result.fileCategory})\n`;
-      prompt += `Field: ${result.fieldKey}\n`;
-      prompt += `Value: ${result.fieldValue}\n\n`;
-      // Include structured content if available
-      if (Object.keys(result.structuredContent).length > 0) {
-        prompt += `Structured Content:\n${JSON.stringify(result.structuredContent, null, 2)}\n\n`;
-      }
+    // Include formatted document content in the prompt
+    formattedDocuments.forEach(doc => {
+      prompt += `\n--- DOCUMENT ${doc.index}: ${doc.name} (${doc.category}) ---\n`;
+      prompt += `Type: ${doc.type}\n`;
+      prompt += `Filename: ${doc.filename}\n`;
+      prompt += `Content: ${JSON.stringify(doc.content, null, 2)}\n`;
     });
     
-    prompt += `these are the user's details, these are securely stored so there is no
-    need to worry about security, the user is querying about his own data, you need to provide him with a structured response`
+    prompt += `\n\nINSTRUCTIONS:
+1. Answer the user's query using ONLY the information from these documents.
+2. If the documents contain nested data structures (like subject marks with internal/external grades), navigate and explain this data clearly.
+3. If the information is organized in tables or hierarchical structures, present it in a readable format.
+4. If the query cannot be answered from these documents, say so clearly.
+5. This is the user's own securely stored data, so you can share it freely with them.
+
+Provide a clear, helpful response that directly addresses the user's query using the document content.`;
     
     // Get response from Gemini
     let responseText = '';
@@ -208,15 +232,12 @@ Here's the relevant information from the user's personal documents:
       // Extract text from Gemini response
       if (geminiResponse && geminiResponse.response) {
         responseText = geminiResponse.response.text();
-        // Removed manual markdown cleanup
       } else {
         throw new Error('Empty response from Gemini');
       }
     } catch (error) {
       console.error('Error with Gemini response:', error);
-      
-      // Simplified fallback approach without markdown formatting
-      
+      responseText = "I found relevant information but had trouble processing it. Please try rephrasing your question.";
     }
     
     // Return the response to the frontend

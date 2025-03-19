@@ -147,6 +147,7 @@ function DocManage() {
     
     setIsUploading(true)
     setUploadStatus("")
+    setError("")
     
     try {
       // Create FormData to send files
@@ -190,6 +191,7 @@ function DocManage() {
         
         setSelectedFiles([])
         setUploadType("")
+        setFileCategory("Document")
       }
     } catch (error) {
       console.error("Upload error:", error)
@@ -277,12 +279,30 @@ function DocManage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
+      {/* Loading Overlay during upload */}
+      {isUploading && (
+        <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center flex-col transition-opacity duration-300 ease-in-out">
+          <div className="bg-gray-800 p-8 rounded-xl shadow-2xl flex flex-col items-center max-w-md w-full">
+            <div className="relative mb-4">
+              <Loader2 className="w-16 h-16 text-indigo-500 animate-spin" />
+              <div className="absolute inset-0 border-t-4 border-indigo-400 rounded-full animate-ping opacity-20"></div>
+            </div>
+            <h3 className="text-xl font-medium mb-2">Uploading Documents</h3>
+            <p className="text-gray-400 mb-4 text-center">Please wait while we process your documents</p>
+            <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+              <div className="bg-indigo-500 h-2 rounded-full animate-pulse"></div>
+            </div>
+            <p className="text-sm text-indigo-300">{uploadStatus || "Preparing..."}</p>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <Link 
               to="/home" 
-              className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800"
+              className={`flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-800 ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
             >
               <ChevronLeft className="w-5 h-5" /> 
               <span>Back to Home</span>
@@ -292,7 +312,7 @@ function DocManage() {
             
             <Link 
               to="/docbot" 
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors"
+              className={`flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
             >
               <MessageSquare className="w-5 h-5" />
               <span>Ask About Documents</span>
@@ -300,7 +320,7 @@ function DocManage() {
           </div>
 
           {/* Upload Section */}
-          <div className="bg-gray-800 rounded-lg p-6 mb-8">
+          <div className={`bg-gray-800 rounded-lg p-6 mb-8 ${isUploading ? 'opacity-70 pointer-events-none' : ''} transition-opacity duration-300`}>
             <h2 className="text-xl font-semibold mb-4">Upload Documents</h2>
             <p className="text-gray-400 mb-6">
               Upload and manage your personal documents securely (PDF, DOC, DOCX, PNG, JPEG)
@@ -315,6 +335,7 @@ function DocManage() {
                   value={fileCategory}
                   onChange={e => setFileCategory(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isUploading}
                 >
                   {FILE_CATEGORIES.map(category => (
                     <option key={category} value={category}>
@@ -335,6 +356,7 @@ function DocManage() {
                   className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={uploadType}
                   onChange={e => setUploadType(e.target.value)}
+                  disabled={isUploading}
                 />
               </div>
 
@@ -346,7 +368,8 @@ function DocManage() {
                     className={`relative aspect-square flex items-center justify-center rounded-lg border-2 border-dashed 
                       ${fileItem 
                         ? 'bg-gray-700 border-gray-600' 
-                        : 'bg-gray-800 border-gray-600 hover:border-gray-500'}`}
+                        : 'bg-gray-800 border-gray-600 hover:border-gray-500'}
+                      ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}
                   >
                     {fileItem ? (
                       <>
@@ -369,6 +392,7 @@ function DocManage() {
                           onClick={() => removeSelectedFile(fileItem.id)}
                           className="absolute top-1 right-1 bg-gray-800/80 hover:bg-gray-700 rounded-full p-1"
                           title="Remove file"
+                          disabled={isUploading}
                         >
                           <X size={16} className="text-gray-300" />
                         </button>
@@ -409,7 +433,7 @@ function DocManage() {
                 </div>
               )}
               
-              {uploadStatus && (
+              {uploadStatus && !isUploading && (
                 <div className="flex items-center gap-2 text-green-400 text-sm mb-4">
                   <FileCheck2 size={16} />
                   <span>{uploadStatus}</span>
@@ -421,7 +445,7 @@ function DocManage() {
                 <button
                   onClick={handleUpload}
                   disabled={selectedFiles.length === 0 || !uploadType || isUploading}
-                  className={`px-6 py-2 rounded-lg flex items-center gap-2 ${
+                  className={`px-6 py-2 rounded-lg flex items-center gap-2 transition-all duration-300 ${
                     selectedFiles.length > 0 && uploadType
                       ? "bg-blue-600 hover:bg-blue-700"
                       : "bg-gray-600 cursor-not-allowed opacity-50"
@@ -443,7 +467,7 @@ function DocManage() {
           </div>
 
           {/* Documents List */}
-          <div className="bg-gray-800 rounded-lg p-6">
+          <div className={`bg-gray-800 rounded-lg p-6 ${isUploading ? 'opacity-70 pointer-events-none' : ''} transition-opacity duration-300`}>
             <h2 className="text-xl font-semibold mb-6">My Documents</h2>
             
             {loading ? (
@@ -539,7 +563,7 @@ function DocManage() {
         </div>
       </div>
 
-      {/* Document Details Modal */}
+      {/* Document Details Modal - Simplified to only show metadata */}
       {selectedDoc && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -567,11 +591,11 @@ function DocManage() {
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Basic Info */}
+            <div className="p-6">
+              {/* Only Basic Info - Metadata */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-300">
-                  Basic Information
+                  Document Information
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-700/50 p-4 rounded-lg">
@@ -604,44 +628,6 @@ function DocManage() {
                   </div>
                 </div>
               </div>
-
-              {/* Document Details */}
-              {selectedDoc.details && Object.keys(selectedDoc.details).length > 0 ? (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-gray-300">
-                    Document Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(selectedDoc.details).map(([key, field]) => (
-                      <div key={key} className="bg-gray-700/50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-400">{key}</p>
-                        <p className="font-medium">
-                          {typeof field === 'object' && field.value 
-                            ? field.value 
-                            : field}
-                        </p>
-                        {field.confidence && (
-                          <div className="mt-1.5 flex items-center">
-                            <div className="h-1.5 flex-1 bg-gray-600 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500" 
-                                style={{width: `${Math.min(field.confidence * 100, 100)}%`}}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-400 ml-2">
-                              {Math.round(field.confidence * 100)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-gray-700/30 rounded-lg p-4 flex items-center justify-center">
-                  <p className="text-gray-400">No additional document details available</p>
-                </div>
-              )}
             </div>
           </div>
         </div>

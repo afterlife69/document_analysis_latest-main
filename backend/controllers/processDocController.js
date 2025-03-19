@@ -348,7 +348,7 @@ function processObjectForPrompt(obj, indent = '', depth = 0) {
 const constructPrompt = (fileCategory, documentType, extractionResult, filename) => {
   const { extractedText, tables, forms, pageCount } = extractionResult;
   
-  // Format tables as Markdown tables for human-readable representation only
+  // Format tables for inclusion in the prompt
   let tablesMarkdown = '';
   if (tables && tables.length > 0) {
     tablesMarkdown = '\n\nTABLES:\n';
@@ -363,24 +363,16 @@ const constructPrompt = (fileCategory, documentType, extractionResult, filename)
         
         // Data rows
         if (table.cellMatrix && table.cellMatrix.length > 1) {
-          // Skip header row (index 0), and limit rows to avoid token limits
-          const maxRows = Math.min(table.cellMatrix.length, 10); // Show max 10 rows
-          for (let i = 1; i < maxRows; i++) {
+          // Show all rows to ensure complete data extraction
+          for (let i = 1; i < table.cellMatrix.length; i++) {
             tablesMarkdown += '| ' + table.cellMatrix[i].join(' | ') + ' |\n';
-          }
-          if (table.cellMatrix.length > maxRows) {
-            tablesMarkdown += '| ... and more rows ... |\n';
           }
         }
       } 
       else if (table.cellMatrix && table.cellMatrix.length > 0) {
         // Table without explicit headers
-        const maxRows = Math.min(table.cellMatrix.length, 10); // Show max 10 rows
-        for (let i = 0; i < maxRows; i++) {
+        for (let i = 0; i < table.cellMatrix.length; i++) {
           tablesMarkdown += '| ' + table.cellMatrix[i].join(' | ') + ' |\n';
-        }
-        if (table.cellMatrix.length > maxRows) {
-          tablesMarkdown += '| ... and more rows ... |\n';
         }
       }
       else if (table.plainText) {
@@ -401,9 +393,9 @@ const constructPrompt = (fileCategory, documentType, extractionResult, filename)
     }
   }
   
-  // Create a prompt that focuses on text content and simplified table format
+  // Create a prompt that emphasizes deeply nested JSON structures
   if (fileCategory === 'Document') {
-    return `Analyze this ${documentType} document and extract ALL important information:
+    return `Analyze this ${documentType} document COMPLETELY and extract ALL information in hierarchical JSON format:
 
 TEXT CONTENT:
 ${extractedText}
@@ -413,17 +405,24 @@ ${tablesMarkdown}
 ${formsText || ''}
 
 INSTRUCTIONS:
-1. Process the text, visible tables, and form fields to extract ALL important information
-2. Create structured fields with appropriate values for this document type
-3. Identify key information like dates, names, numbers, and categories
-4. Use descriptive field names that reflect the document's content
+1. Process ALL text, tables, and form fields. DO NOT OMIT ANY DETAIL.
+2. Create a hierarchical, nested JSON representation of the document's content.
+3. Group related fields into nested objects rather than flat structures.
+4. For tables with subjects, grades, marks, etc., use nested objects like:
+   "subjects": {
+     "english": { "internal": "B1", "external": "A2", "gradePoints": 9 },
+     "mathematics": { "internal": "A1", "external": "A1", "gradePoints": 10 }
+   }
+5. Include confidence scores for extracted values.
+6. ENSURE ALL DATA is captured - this is mandatory.
 
 Output format:
 {
   "document_type": "${documentType}",
-  "fields": {
-    "Field1": {"value": "extracted value", "confidence": 0.95},
-    "Field2": {"value": "extracted value", "confidence": 0.90}
+  "content": {
+    // Deeply nested hierarchical structure of ALL document data
+    // Group related information into nested objects
+    // For example: "marks": { "english": { "internal": "B1", ... } }
   },
   "metadata": {
     "source_file": "${filename}",
@@ -432,96 +431,77 @@ Output format:
   }
 }
 
-Return ONLY valid JSON with no markdown or explanations.`;
+Return ONLY valid JSON with no markdown or explanations. INCLUDE ALL DATA from the document.`;
   }
   
-  // Default prompt for other categories
-  return `Extract information from this document:
+  // Default prompt for other categories with emphasis on nested JSON
+  return `Extract ALL information from this ${fileCategory} into deeply nested JSON:
 
 TEXT:
 ${extractedText}
 ${tablesMarkdown}
 ${formsText}
 
-Return JSON with extracted data.`;
+INSTRUCTIONS:
+1. Extract ALL information into a hierarchical JSON structure
+2. Group related information into nested objects
+3. For timetables, create nested structures by day, time, subject, etc.
+4. INCLUDE ALL DATA from the document - this is mandatory
+5. Use descriptive field names
+
+Return ONLY valid JSON with complete information.`;
 };
 
-// For backward compatibility, keep the original function name using the new implementation
+// For backward compatibility
 const constructPromptForGemini = constructPrompt;
 
-// Helper to generate embeddings for document fields
-const generateFieldEmbeddings = async (docId, userId, documentName, fileCategory, structuredData) => {
+// Completely revised function to ensure only ONE embedding per document is created
+const generateDocumentEmbedding = async (docId, userId, documentName, fileCategory, structuredData) => {
   try {
-    const embeddings = [];
+    console.log(`Creating single embedding for document: ${documentName}`);
     
-    // Encrypt the document name once for all embeddings
+    // Encrypt the document name
     const { encryptedData: encryptedDocName, iv: docNameIV } = encryptData(documentName);
     
-    if (fileCategory === 'Document' && structuredData.fields) {
-      // For documents, generate embedding for each field
-      for (const [key, data] of Object.entries(structuredData.fields)) {
-        // We still need the plaintext for generating the embedding
-        const textToEmbed = `[${documentName}] ${key}: ${data.value}`;
-        const embedding = await getEmbedding(textToEmbed);
-        console.log(textToEmbed);
-        
-        // Encrypt fieldKey and fieldValue
-        const { encryptedData: encryptedFieldKey, iv: fieldKeyIV } = encryptData(key);
-        const { encryptedData: encryptedFieldValue, iv: fieldValueIV } = encryptData(data.value);
-        
-        embeddings.push({
-          documentId: docId,
-          userId,
-          // Replace documentName with encrypted version
-          encryptedDocName,
-          docNameIV,
-          fileCategory,
-          // Encrypted field data (already implemented)
-          encryptedFieldKey,
-          fieldKeyIV,
-          encryptedFieldValue,
-          fieldValueIV,
-          embedding,
-          confidence: data.confidence
-        });
-      }
-    } else if (fileCategory === 'Timetable' && structuredData.events) {
-      // For timetables, generate embedding for each event
-      for (let i = 0; i < structuredData.events.length; i++) {
-        const event = structuredData.events[i];
-        const textToEmbed = `[${documentName}] ${event.day} ${event.start_time}-${event.end_time}: ${event.subject} ${event.location || ''}`;
-        const embedding = await getEmbedding(textToEmbed);
-        console.log(textToEmbed);
-        
-        // Generate a fieldKey for this event
-        const fieldKey = `event_${i}`;
-        
-        // Encrypt fieldKey and fieldValue
-        const { encryptedData: encryptedFieldKey, iv: fieldKeyIV } = encryptData(fieldKey);
-        const { encryptedData: encryptedFieldValue, iv: fieldValueIV } = encryptData(textToEmbed);
-        
-        embeddings.push({
-          documentId: docId,
-          userId,
-          // Replace documentName with encrypted version
-          encryptedDocName,
-          docNameIV,
-          fileCategory,
-          // Encrypted field data (already implemented)
-          encryptedFieldKey,
-          fieldKeyIV,
-          encryptedFieldValue,
-          fieldValueIV,
-          embedding,
-          confidence: event.confidence || 1.0
-        });
-      }
-    }
+    // Convert the ENTIRE document structure to a searchable text string
+    let documentText = `Document: ${documentName}\nCategory: ${fileCategory}\n`;
     
-    return embeddings;
+    // Convert the COMPLETE structured data to text for embedding
+    // This ensures semantic search can find all relevant content
+    documentText += JSON.stringify(structuredData);
+    
+    console.log(`Generated document text for embedding (length: ${documentText.length})`);
+    
+    // Generate a SINGLE embedding vector for the entire document content
+    const embedding = await getEmbedding(documentText);
+    
+    // Encrypt the entire structured data object as one unit
+    const { encryptedData: encryptedContent, iv: contentIV } = encryptData(structuredData);
+    
+    console.log(`Created single embedding vector of length ${embedding.length}`);
+    
+    // Create ONE embedding document that contains the complete document data
+    const singleEmbedding = {
+      documentId: docId,
+      userId,
+      encryptedDocName,
+      docNameIV,
+      fileCategory,
+      // Use a consistent key name for all documents
+      encryptedFieldKey: encryptData("complete_document").encryptedData,
+      fieldKeyIV: encryptData("complete_document").iv,
+      // Store the ENTIRE document content
+      encryptedFieldValue: encryptedContent,
+      fieldValueIV: contentIV,
+      embedding,
+      confidence: 1.0
+    };
+    
+    // Return a single embedding in an array (for API consistency)
+    return [singleEmbedding];
   } catch (error) {
-    console.error('Error generating embeddings:', error);
-    throw new Error('Failed to generate embeddings');
+    console.error('Error generating document embedding:', error);
+    throw new Error('Failed to generate document embedding');
   }
 };
 
@@ -681,8 +661,9 @@ export const processDocument = [
         
         await processedDoc.save();
         
-        // Generate embeddings for the document fields
-        const embeddings = await generateFieldEmbeddings(
+        // Generate EXACTLY ONE embedding for the document
+        console.log(`Generating single embedding for document: ${documentType}`);
+        const singleEmbedding = await generateDocumentEmbedding(
           processedDoc._id,
           userId,
           documentType,
@@ -690,9 +671,12 @@ export const processDocument = [
           structuredData
         );
         
-        // Save embeddings to database
-        if (embeddings.length > 0) {
-          await DocumentEmbedding.insertMany(embeddings);
+        // Save the SINGLE embedding to database
+        if (singleEmbedding && singleEmbedding.length === 1) {
+          console.log(`Saving single embedding for document: ${documentType}`);
+          await DocumentEmbedding.create(singleEmbedding[0]); // Use create instead of insertMany
+        } else {
+          console.error('Expected single embedding was not generated');
         }
         
         // Add to results

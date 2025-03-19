@@ -12,6 +12,7 @@ import pdfRoutes from './routes/pdfRoutes.js';
 import leaderboardRoute from './routes/leaderboardRoutes.js';
 import SubjectRoute from './routes/subjectRoutes.js';
 import PersonalDocRoute from './routes/documentRoutes.js';
+import GetDocs from './routes/documentsRoutes.js'
 import promptRoutes from './routes/promptRoutes.js';
 
 dotenv.config();
@@ -34,7 +35,7 @@ app.use('/api/leaderboard', leaderboardRoute);
 app.use('/api/subjects', SubjectRoute);
 app.use('/api/personal', PersonalDocRoute);
 app.use('/api/personal', promptRoutes);
-
+app.use('/api/documents', GetDocs);
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
